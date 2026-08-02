@@ -518,7 +518,7 @@
     query, orderBy, where, writeBatch, serverTimestamp, increment
   } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-firestore.js";
   import {
-    getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut
+    getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut
   } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-auth.js";
 
   // ============================================================
@@ -1091,11 +1091,15 @@
     db = getFirestore(app);
     auth = getAuth(app);
 
+    // El popup falla o se cierra solo en bastantes navegadores móviles;
+    // la redirección es la opción que recomienda Firebase para móvil.
+    getRedirectResult(auth).catch((err) => {
+      console.error(err);
+      showBanner(`No se pudo iniciar sesión (${err.code || err.message}).`);
+    });
+
     els.googleSigninBtn.addEventListener('click', () => {
-      signInWithPopup(auth, new GoogleAuthProvider()).catch((err) => {
-        console.error(err);
-        showBanner('No se pudo iniciar sesión. Inténtalo de nuevo.');
-      });
+      signInWithRedirect(auth, new GoogleAuthProvider());
     });
     els.deniedSignoutBtn.addEventListener('click', () => signOut(auth));
     els.signoutBtn.addEventListener('click', () => signOut(auth));
