@@ -204,8 +204,8 @@
     margin-bottom: 8px;
     box-shadow: var(--shadow-card);
   }
-  .task-row--daily { border-left-style: solid; border-left-color: var(--routine-soft); }
-  .task-row--today { border-left-style: dashed; border-left-color: var(--today-soft); }
+  .task-row--daily { border-left-style: solid; border-left-color: var(--task-color, var(--routine-soft)); }
+  .task-row--today { border-left-style: dashed; border-left-color: var(--task-color, var(--today-soft)); }
 
   .check {
     width: 27px; height: 27px;
@@ -216,10 +216,10 @@
     cursor: pointer; flex-shrink: 0; padding: 0;
     transition: background-color .22s ease, border-color .22s ease;
   }
-  .task-row--daily .check { border-color: var(--routine); }
-  .task-row--today .check { border-color: var(--today-c); }
-  .task-row--daily.is-done .check { background: var(--routine); border-color: var(--routine); }
-  .task-row--today.is-done .check { background: var(--today-c); border-color: var(--today-c); }
+  .task-row--daily .check { border-color: var(--task-color, var(--routine)); }
+  .task-row--today .check { border-color: var(--task-color, var(--today-c)); }
+  .task-row--daily.is-done .check { background: var(--task-color, var(--routine)); border-color: var(--task-color, var(--routine)); }
+  .task-row--today.is-done .check { background: var(--task-color, var(--today-c)); border-color: var(--task-color, var(--today-c)); }
   .check-icon { width: 16px; height: 16px; }
   .check-icon path {
     fill: none; stroke: white; stroke-width: 2.6;
@@ -236,8 +236,8 @@
   }
   .check.is-stamping { animation: stampPulse .35s ease; }
 
-  .task-title { flex: 1; font-size: 0.98rem; line-height: 1.4; word-break: break-word; }
-  .is-done .task-title { text-decoration: line-through; color: var(--ink-muted); }
+  .task-title { flex: 1; font-size: 0.98rem; line-height: 1.4; word-break: break-word; color: var(--task-color, inherit); }
+  .is-done .task-title { text-decoration: line-through; color: var(--task-color, var(--ink-muted)); }
 
   .task-edit-input {
     flex: 1;
@@ -291,6 +291,28 @@
   #today-form button { background: var(--today-c); }
   .add-form button:hover { transform: scale(1.05); }
   .add-form button:active { transform: scale(0.96); }
+
+  .color-picker { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 0; }
+  .color-picker--inline { margin: 8px 0 0 0; }
+  .color-swatch {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    background: var(--swatch-color, var(--surface-alt));
+    cursor: pointer; padding: 0; flex-shrink: 0;
+    box-shadow: inset 0 0 0 1px var(--border-strong);
+    transition: transform .12s ease, box-shadow .12s ease;
+  }
+  .color-swatch--none { background: var(--surface-alt); position: relative; }
+  .color-swatch--none::before, .color-swatch--none::after {
+    content: ''; position: absolute; left: 50%; top: 50%;
+    width: 16px; height: 2px; background: var(--ink-muted);
+    transform: translate(-50%, -50%) rotate(45deg);
+  }
+  .color-swatch[aria-pressed="true"] {
+    box-shadow: inset 0 0 0 1px var(--border-strong), 0 0 0 2px var(--surface), 0 0 0 4px var(--swatch-color, var(--ink-muted));
+  }
+  .color-swatch:hover { transform: scale(1.1); }
 
   /* Calendario */
   .cal-mode-switch {
@@ -427,7 +449,7 @@
   .cal-day-tasks { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
   .cal-day-task {
     font-size: 0.85rem;
-    color: var(--ink-muted);
+    color: var(--task-color, var(--ink-muted));
     padding: 7px 12px 7px 28px;
     background: var(--surface);
     border: 1px solid var(--border);
@@ -438,10 +460,10 @@
     content: '';
     position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
     width: 9px; height: 9px; border-radius: 50%;
-    border: 2px solid var(--border-strong);
+    border: 2px solid var(--task-color, var(--border-strong));
   }
-  .cal-day-task.is-done { color: var(--ink); }
-  .cal-day-task.is-done::before { background: var(--today-c); border-color: var(--today-c); }
+  .cal-day-task.is-done { color: var(--task-color, var(--ink)); }
+  .cal-day-task.is-done::before { background: var(--task-color, var(--today-c)); border-color: var(--task-color, var(--today-c)); }
 
   button:focus-visible, input:focus-visible { outline: 2px solid var(--routine); outline-offset: 2px; }
 
@@ -518,6 +540,7 @@
           <input type="text" id="daily-input" placeholder="Añadir tarea diaria…" autocomplete="off" maxlength="140">
           <button type="submit" aria-label="Añadir tarea diaria">→</button>
         </form>
+        <div class="color-picker" id="daily-color-picker"></div>
       </div>
       <div class="add-block">
         <h2 class="section-label">Solo hoy</h2>
@@ -527,6 +550,7 @@
           <input type="text" id="today-input" placeholder="Añadir tarea de hoy…" autocomplete="off" maxlength="140">
           <button type="submit" aria-label="Añadir tarea de hoy">→</button>
         </form>
+        <div class="color-picker" id="today-color-picker"></div>
       </div>
     </section>
 
@@ -652,6 +676,8 @@
     todayForm: document.getElementById('today-form'),
     dailyInput: document.getElementById('daily-input'),
     todayInput: document.getElementById('today-input'),
+    dailyColorPicker: document.getElementById('daily-color-picker'),
+    todayColorPicker: document.getElementById('today-color-picker'),
 
     calModeBtns: document.querySelectorAll('.cal-mode-btn'),
     calPrev: document.getElementById('cal-prev'),
@@ -750,6 +776,7 @@
         type: 'daily',
         templateId: tDoc.id,
         order: idx,
+        color: data.color || null,
         createdAt: serverTimestamp()
       });
     });
@@ -768,11 +795,52 @@
   }
 
   // ---------- Render de la lista de hoy ----------
+  // ---------- Selector de color de tareas ----------
+  const TASK_COLORS = [
+    { hex: null, label: 'Sin color' },
+    { hex: '#E4572E', label: 'Coral' },
+    { hex: '#C98A1F', label: 'Ámbar' },
+    { hex: '#6B8E23', label: 'Oliva' },
+    { hex: '#1E8A7A', label: 'Verde azulado' },
+    { hex: '#4C5FD5', label: 'Índigo' },
+    { hex: '#8E4C8E', label: 'Ciruela' },
+    { hex: '#C2447A', label: 'Rosa' },
+    { hex: '#546778', label: 'Pizarra' },
+  ];
+
+  function buildColorPicker(initialColor, onSelect) {
+    const wrap = document.createElement('div');
+    wrap.className = 'color-picker';
+    wrap.setAttribute('role', 'group');
+    wrap.setAttribute('aria-label', 'Color de la tarea');
+    const swatches = TASK_COLORS.map(c => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'color-swatch' + (c.hex ? '' : ' color-swatch--none');
+      if (c.hex) btn.style.setProperty('--swatch-color', c.hex);
+      btn.setAttribute('aria-label', c.label);
+      btn.setAttribute('aria-pressed', String((initialColor || null) === c.hex));
+      btn.addEventListener('click', () => {
+        swatches.forEach((b, i) => b.setAttribute('aria-pressed', String(TASK_COLORS[i].hex === c.hex)));
+        onSelect(c.hex);
+      });
+      wrap.appendChild(btn);
+      return btn;
+    });
+    return wrap;
+  }
+
+  let dailyFormColor = null;
+  let todayFormColor = null;
+  els.dailyColorPicker.append(buildColorPicker(null, (c) => { dailyFormColor = c; }));
+  els.todayColorPicker.append(buildColorPicker(null, (c) => { todayFormColor = c; }));
+
   function createTaskRow(item) {
     const li = document.createElement('li');
     const typeClass = item.type === 'daily' ? 'task-row--daily' : 'task-row--today';
     li.className = `task-row ${typeClass}${item.completed ? ' is-done' : ''}`;
     li.dataset.id = item.id;
+    if (item.color) li.style.setProperty('--task-color', item.color);
 
     const check = document.createElement('button');
     check.type = 'button';
@@ -799,18 +867,25 @@
     editInput.maxLength = 140;
     editInput.hidden = true;
 
+    let editSelectedColor = item.color || null;
+    const editColorPicker = buildColorPicker(item.color || null, (c) => { editSelectedColor = c; });
+    editColorPicker.classList.add('color-picker--inline');
+    editColorPicker.hidden = true;
+
     let finished = false;
     function enterEditMode() {
       finished = false;
       editingItemId = item.id;
       title.hidden = true;
       editInput.hidden = false;
+      editColorPicker.hidden = false;
       editInput.value = item.title;
       editInput.focus();
       editInput.select();
     }
     function exitEditMode() {
       editInput.hidden = true;
+      editColorPicker.hidden = true;
       title.hidden = false;
     }
     function finishEdit(commit) {
@@ -819,7 +894,11 @@
       const val = editInput.value.trim();
       exitEditMode();
       editingItemId = null;
-      if (commit && val && val !== item.title) editItem(item, val);
+      const titleChanged = commit && val && val !== item.title;
+      const colorChanged = commit && editSelectedColor !== (item.color || null);
+      if (titleChanged || colorChanged) {
+        editItem(item, titleChanged ? val : item.title, editSelectedColor);
+      }
       if (pendingRenderItems) {
         const queued = pendingRenderItems;
         pendingRenderItems = null;
@@ -828,7 +907,7 @@
     }
     editInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') { e.preventDefault(); finishEdit(true); }
-      if (e.key === 'Escape') { editInput.value = item.title; finishEdit(false); }
+      if (e.key === 'Escape') { editInput.value = item.title; editSelectedColor = item.color || null; finishEdit(false); }
     });
     editInput.addEventListener('blur', () => finishEdit(true));
 
@@ -850,7 +929,7 @@
     del.addEventListener('click', () => deleteItem(item));
 
     actions.append(editBtn, del);
-    li.append(check, title, editInput, actions);
+    li.append(check, title, editInput, editColorPicker, actions);
     return li;
   }
 
@@ -895,12 +974,13 @@
     }
   }
 
-  async function editItem(item, newTitle) {
+  async function editItem(item, newTitle, newColor) {
     try {
       const batch = writeBatch(db);
-      batch.update(doc(db, 'days', todayStr, 'items', item.id), { title: newTitle });
+      const updates = { title: newTitle, color: newColor || null };
+      batch.update(doc(db, 'days', todayStr, 'items', item.id), updates);
       if (item.type === 'daily' && item.templateId) {
-        batch.update(doc(db, 'dailyTasks', item.templateId), { title: newTitle });
+        batch.update(doc(db, 'dailyTasks', item.templateId), updates);
       }
       await batch.commit();
     } catch (err) {
@@ -930,25 +1010,25 @@
     }
   }
 
-  async function addDailyTask(title) {
+  async function addDailyTask(title, color) {
     const batch = writeBatch(db);
     const templateRef = doc(collection(db, 'dailyTasks'));
-    batch.set(templateRef, { title, order: Date.now(), createdAt: serverTimestamp() });
+    batch.set(templateRef, { title, order: Date.now(), createdAt: serverTimestamp(), color: color || null });
     const itemRef = doc(collection(db, 'days', todayStr, 'items'));
     batch.set(itemRef, {
       title, completed: false, type: 'daily', templateId: templateRef.id,
-      order: Date.now(), createdAt: serverTimestamp()
+      order: Date.now(), createdAt: serverTimestamp(), color: color || null
     });
     batch.update(doc(db, 'days', todayStr), { totalCount: increment(1) });
     await batch.commit();
   }
 
-  async function addOneOffTask(title) {
+  async function addOneOffTask(title, color) {
     const batch = writeBatch(db);
     const itemRef = doc(collection(db, 'days', todayStr, 'items'));
     batch.set(itemRef, {
       title, completed: false, type: 'oneoff', templateId: null,
-      order: Date.now(), createdAt: serverTimestamp()
+      order: Date.now(), createdAt: serverTimestamp(), color: color || null
     });
     batch.update(doc(db, 'days', todayStr), { totalCount: increment(1) });
     await batch.commit();
@@ -958,8 +1038,13 @@
     e.preventDefault();
     const title = els.dailyInput.value.trim();
     if (!title) return;
+    const color = dailyFormColor;
     els.dailyInput.value = '';
-    try { await addDailyTask(title); }
+    try {
+      await addDailyTask(title, color);
+      dailyFormColor = null;
+      els.dailyColorPicker.replaceChildren(buildColorPicker(null, (c) => { dailyFormColor = c; }));
+    }
     catch (err) { console.error(err); showBanner(`No se pudo añadir la tarea (${describeError(err)}).`); }
   });
 
@@ -967,8 +1052,13 @@
     e.preventDefault();
     const title = els.todayInput.value.trim();
     if (!title) return;
+    const color = todayFormColor;
     els.todayInput.value = '';
-    try { await addOneOffTask(title); }
+    try {
+      await addOneOffTask(title, color);
+      todayFormColor = null;
+      els.todayColorPicker.replaceChildren(buildColorPicker(null, (c) => { todayFormColor = c; }));
+    }
     catch (err) { console.error(err); showBanner(`No se pudo añadir la tarea (${describeError(err)}).`); }
   });
 
@@ -1025,6 +1115,7 @@
         const li = document.createElement('li');
         li.className = `cal-day-task${data.completed ? ' is-done' : ''}`;
         li.textContent = data.title;
+        if (data.color) li.style.setProperty('--task-color', data.color);
         return li;
       }));
     } catch (err) {
