@@ -518,7 +518,7 @@
     query, orderBy, where, writeBatch, serverTimestamp, increment
   } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-firestore.js";
   import {
-    getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut
+    getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut
   } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-auth.js";
 
   // ============================================================
@@ -1091,15 +1091,23 @@
     db = getFirestore(app);
     auth = getAuth(app);
 
-    // El popup falla o se cierra solo en bastantes navegadores móviles;
-    // la redirección es la opción que recomienda Firebase para móvil.
+    // El popup evita el problema de Safari donde signInWithRedirect no
+    // guarda la sesión entre este dominio y el auxiliar de Firebase.
+    // Si el navegador bloquea el popup, caemos a redirección como plan B.
     getRedirectResult(auth).catch((err) => {
       console.error(err);
       showBanner(`No se pudo iniciar sesión (${err.code || err.message}).`);
     });
 
     els.googleSigninBtn.addEventListener('click', () => {
-      signInWithRedirect(auth, new GoogleAuthProvider());
+      signInWithPopup(auth, new GoogleAuthProvider()).catch((err) => {
+        console.error(err);
+        if (err.code === 'auth/popup-blocked' || err.code === 'auth/operation-not-supported-in-this-environment') {
+          signInWithRedirect(auth, new GoogleAuthProvider());
+        } else if (err.code !== 'auth/cancelled-popup-request' && err.code !== 'auth/popup-closed-by-user') {
+          showBanner(`No se pudo iniciar sesión (${err.code || err.message}).`);
+        }
+      });
     });
     els.deniedSignoutBtn.addEventListener('click', () => signOut(auth));
     els.signoutBtn.addEventListener('click', () => signOut(auth));
