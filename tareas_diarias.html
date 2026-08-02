@@ -1,0 +1,1146 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0B4F6C">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Tareas">
+<title>Tareas de hoy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&amp;family=Inter:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #E9F1F3;
+    --surface: #FFFFFF;
+    --surface-alt: #DEEBEF;
+    --ink: #12293A;
+    --ink-muted: #5D7A8A;
+    --border: #D2E2E7;
+    --border-strong: #AFC9D2;
+
+    --routine: #0B4F6C;
+    --routine-soft: #9FC4D3;
+    --today-c: #257F97;
+    --today-soft: #9FD3DE;
+    --today-tint: #DDF1F4;
+
+    --danger: #B14B3C;
+
+    --heat-0: #EEF5F7;
+    --heat-1: #D3E7EC;
+    --heat-2: #9BCBD8;
+    --heat-3: #5CA3B8;
+    --heat-4: #2B7794;
+    --heat-5: #0B4F6C;
+
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --shadow-card: 0 1px 2px rgba(11,41,58,0.05), 0 4px 14px rgba(11,41,58,0.07);
+    --font-display: 'Fraunces', Georgia, serif;
+    --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', monospace;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  html { -webkit-tap-highlight-color: transparent; overscroll-behavior-y: none; }
+  body { margin: 0; overscroll-behavior-y: none; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-body);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    -webkit-touch-callout: none;
+  }
+
+  button {
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  input, .task-edit-input {
+    -webkit-user-select: text;
+    user-select: text;
+    touch-action: manipulation;
+  }
+
+  .page { max-width: 640px; margin: 0 auto; padding: 40px 24px 80px; }
+  @media (max-width: 480px) {
+    .page { padding: 28px 16px 64px; }
+  }
+
+  .sr-only {
+    position: absolute; width: 1px; height: 1px;
+    padding: 0; margin: -1px; overflow: hidden;
+    clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+  }
+
+  /* Cabecera */
+  .day-header { margin-bottom: 24px; }
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin: 0 0 8px;
+  }
+  .date-display {
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: clamp(2rem, 6vw, 2.75rem);
+    margin: 0 0 10px;
+    line-height: 1.1;
+  }
+  .summary-line { font-family: var(--font-mono); font-size: 0.85rem; color: var(--ink-muted); margin: 0; }
+
+  /* Aviso / carga */
+  .banner {
+    background: var(--today-tint);
+    border-left: 3px solid var(--danger);
+    color: var(--ink);
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    font-size: 0.9rem;
+    margin-bottom: 20px;
+  }
+  .loading-state { font-family: var(--font-mono); font-size: 0.85rem; color: var(--ink-muted); margin: 0 0 20px; }
+
+  .setup-notice {
+    text-align: center;
+    padding: 48px 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    margin-bottom: 20px;
+  }
+  .setup-icon { font-size: 2rem; margin: 0 0 12px; }
+  .setup-title { font-family: var(--font-display); font-size: 1.3rem; font-weight: 500; margin: 0 0 12px; color: var(--ink); }
+  .setup-text { font-size: 0.9rem; color: var(--ink-muted); line-height: 1.6; margin: 0 auto; max-width: 42ch; }
+  .setup-text code { font-family: var(--font-mono); background: var(--surface-alt); padding: 1px 5px; border-radius: 4px; font-size: 0.85em; color: var(--routine); }
+  .google-signin-btn {
+    margin-top: 18px;
+    background: var(--routine);
+    color: white;
+    border: none;
+    padding: 12px 26px;
+    border-radius: 999px;
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .google-signin-btn:hover { opacity: 0.9; }
+
+  .header-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .signout-btn {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    border: 1px solid var(--border-strong);
+    background: var(--surface);
+    color: var(--ink-muted);
+    cursor: pointer;
+    display: grid; place-items: center;
+    font-size: 1rem;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .signout-btn:hover { color: var(--danger); border-color: var(--danger); }
+
+  /* Pestañas */
+  .tab-bar {
+    display: flex;
+    gap: 4px;
+    background: var(--surface-alt);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 4px;
+    margin-bottom: 28px;
+  }
+  .tab-btn {
+    flex: 1;
+    border: none;
+    background: transparent;
+    color: var(--ink-muted);
+    font-family: var(--font-body);
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 10px 8px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background-color .18s ease, color .18s ease;
+  }
+  .tab-btn.is-active { background: var(--routine); color: #FFFFFF; }
+  .tab-panel:focus { outline: none; }
+
+  /* Secciones (ver / añadir) */
+  .view-block, .add-block { margin-bottom: 32px; }
+  .section-label {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin: 0 0 12px;
+    font-weight: 500;
+  }
+  .add-hint { font-size: 0.85rem; color: var(--ink-muted); margin: 0 0 12px; }
+  .task-list { list-style: none; margin: 0 0 10px; padding: 0; }
+
+  .task-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left-width: 3px;
+    border-radius: var(--radius-md);
+    padding: 12px 10px 12px 16px;
+    margin-bottom: 8px;
+    box-shadow: var(--shadow-card);
+  }
+  .task-row--daily { border-left-style: solid; border-left-color: var(--routine-soft); }
+  .task-row--today { border-left-style: dashed; border-left-color: var(--today-soft); }
+
+  .check {
+    width: 27px; height: 27px;
+    border-radius: 50%;
+    border: 2px solid var(--border-strong);
+    background: var(--surface);
+    display: grid; place-items: center;
+    cursor: pointer; flex-shrink: 0; padding: 0;
+    transition: background-color .22s ease, border-color .22s ease;
+  }
+  .task-row--daily .check { border-color: var(--routine); }
+  .task-row--today .check { border-color: var(--today-c); }
+  .task-row--daily.is-done .check { background: var(--routine); border-color: var(--routine); }
+  .task-row--today.is-done .check { background: var(--today-c); border-color: var(--today-c); }
+  .check-icon { width: 16px; height: 16px; }
+  .check-icon path {
+    fill: none; stroke: white; stroke-width: 2.6;
+    stroke-linecap: round; stroke-linejoin: round;
+    stroke-dasharray: 30; stroke-dashoffset: 30;
+    transition: stroke-dashoffset .3s ease;
+  }
+  .is-done .check-icon path { stroke-dashoffset: 0; }
+
+  @keyframes stampPulse {
+    0% { transform: scale(1); }
+    45% { transform: scale(1.22); }
+    100% { transform: scale(1); }
+  }
+  .check.is-stamping { animation: stampPulse .35s ease; }
+
+  .task-title { flex: 1; font-size: 0.98rem; line-height: 1.4; word-break: break-word; }
+  .is-done .task-title { text-decoration: line-through; color: var(--ink-muted); }
+
+  .task-edit-input {
+    flex: 1;
+    font-family: var(--font-body);
+    font-size: 16px;
+    color: var(--ink);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    padding: 5px 8px;
+    background: var(--surface);
+  }
+
+  .task-actions { display: flex; gap: 2px; flex-shrink: 0; }
+  .edit-btn, .delete {
+    background: none; border: none;
+    color: var(--ink-muted);
+    opacity: 0.5;
+    cursor: pointer;
+    font-size: 0.92rem;
+    padding: 4px 7px;
+    border-radius: var(--radius-sm);
+    transition: opacity .15s ease, color .15s ease, background-color .15s ease;
+  }
+  .edit-btn:hover, .edit-btn:focus-visible { opacity: 1; color: var(--routine); background: rgba(11,79,108,0.08); }
+  .delete:hover, .delete:focus-visible { opacity: 1; color: var(--danger); background: rgba(177,75,60,0.08); }
+
+  .empty-state { font-size: 0.88rem; color: var(--ink-muted); padding: 2px 2px 4px; margin: 0 0 10px; font-style: italic; }
+
+  .add-form { display: flex; gap: 8px; align-items: center; }
+  .add-form input {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 11px 14px;
+    font-family: var(--font-body);
+    font-size: 16px;
+    color: var(--ink);
+  }
+  .add-form input::placeholder { color: var(--ink-muted); }
+  .add-form button {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    border: none; cursor: pointer;
+    font-size: 1.1rem; flex-shrink: 0;
+    color: white;
+    display: grid; place-items: center;
+    transition: transform .12s ease;
+  }
+  #daily-form button { background: var(--routine); }
+  #today-form button { background: var(--today-c); }
+  .add-form button:hover { transform: scale(1.05); }
+  .add-form button:active { transform: scale(0.96); }
+
+  /* Calendario */
+  .cal-mode-switch {
+    display: flex; gap: 4px;
+    background: var(--surface-alt);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 4px;
+    margin-bottom: 16px;
+  }
+  .cal-mode-btn {
+    flex: 1; border: none; background: transparent;
+    color: var(--ink-muted);
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    letter-spacing: 0.03em;
+    padding: 8px 6px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background-color .18s ease, color .18s ease;
+  }
+  .cal-mode-btn.is-active { background: var(--today-c); color: white; }
+
+  .cal-nav { display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 18px; }
+  .cal-nav button {
+    width: 32px; height: 32px; border-radius: 50%;
+    border: 1px solid var(--border-strong);
+    background: var(--surface); color: var(--ink);
+    font-size: 1.1rem; cursor: pointer;
+    display: grid; place-items: center;
+  }
+  .cal-range-label {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    color: var(--ink);
+    min-width: 150px;
+    text-align: center;
+  }
+
+  .cal-grid--week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-bottom: 16px; }
+  .cal-cell--week {
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    padding: 10px 2px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    font-family: var(--font-body);
+  }
+  .cal-cell-weekday { font-family: var(--font-mono); font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.8; }
+  .cal-cell-num { font-size: 1rem; font-weight: 600; }
+  .cal-cell-frac { font-family: var(--font-mono); font-size: 0.6rem; opacity: 0.8; }
+
+  .cal-weekday-header { display: grid; grid-template-columns: repeat(7, 1fr); margin-bottom: 6px; }
+  .cal-weekday-header span {
+    text-align: center; font-family: var(--font-mono); font-size: 0.68rem;
+    color: var(--ink-muted); text-transform: uppercase;
+  }
+  .cal-grid--month { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin-bottom: 16px; }
+  .cal-cell--month {
+    aspect-ratio: 1; display: grid; place-items: center;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    font-size: 0.82rem; font-weight: 500;
+    cursor: pointer;
+  }
+  .cal-cell--month.is-outside { opacity: 0.35; }
+
+  .cal-cell--week.is-today, .cal-cell--month.is-today {
+    box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--ink);
+  }
+
+  .cal-grid--year { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 14px; margin-bottom: 8px; }
+  .cal-year-month-label { font-family: var(--font-mono); font-size: 0.68rem; text-transform: uppercase; color: var(--ink-muted); margin: 0 0 6px; letter-spacing: 0.04em; }
+  .cal-year-month-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+  .cal-year-cell { aspect-ratio: 1; border-radius: 2px; border: none; padding: 0; cursor: pointer; }
+  .cal-year-cell--blank { background: transparent !important; cursor: default; }
+  .cal-year-cell.is-today { box-shadow: 0 0 0 1px var(--surface), 0 0 0 2px var(--ink); }
+
+  .heat-0 { background: var(--heat-0); color: var(--ink); }
+  .heat-1 { background: var(--heat-1); color: var(--ink); }
+  .heat-2 { background: var(--heat-2); color: var(--ink); }
+  .heat-3 { background: var(--heat-3); color: #F5FAFB; }
+  .heat-4 { background: var(--heat-4); color: #F5FAFB; }
+  .heat-5 { background: var(--heat-5); color: #F5FAFB; }
+
+  .cal-legend { display: flex; align-items: center; justify-content: center; gap: 4px; margin: 4px 0 14px; }
+  .cal-legend-label { font-family: var(--font-mono); font-size: 0.62rem; color: var(--ink-muted); margin: 0 2px; }
+  .cal-legend-swatch { width: 14px; height: 14px; border-radius: 3px; display: inline-block; }
+
+  .cal-detail {
+    font-size: 0.88rem; color: var(--ink-muted); text-align: center;
+    padding: 12px 0 0; margin: 0; border-top: 1px solid var(--border);
+  }
+
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--routine); outline-offset: 2px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+</style>
+</head>
+<body>
+  <main class="page">
+    <header class="day-header">
+      <div class="header-top">
+        <div>
+          <p class="eyebrow" id="greeting-eyebrow"></p>
+          <h1 class="date-display" id="date-display"></h1>
+        </div>
+        <button type="button" id="signout-btn" class="signout-btn" hidden aria-label="Cerrar sesión">⎋</button>
+      </div>
+      <p class="summary-line" id="summary-line"></p>
+    </header>
+
+    <div id="connection-banner" class="banner" role="alert" hidden></div>
+    <p class="loading-state" id="loading-state">Cargando tus tareas…</p>
+
+    <div class="setup-notice" id="setup-notice" role="alert" hidden>
+      <p class="setup-icon" aria-hidden="true">⚓</p>
+      <h2 class="setup-title">Conecta Firebase para empezar</h2>
+      <p class="setup-text">Este archivo todavía tiene una configuración de ejemplo, así que de momento no guarda ni carga nada — eso es lo que estás viendo, no un error del código. Abre el archivo, busca <code>firebaseConfig</code> cerca del final, y sustitúyelo por el de tu proyecto (Firebase Console → Configuración del proyecto → Tus apps → SDK).</p>
+    </div>
+
+    <div class="setup-notice" id="login-notice" role="alert" hidden>
+      <p class="setup-icon" aria-hidden="true">🔐</p>
+      <h2 class="setup-title">Accede para ver tus tareas</h2>
+      <p class="setup-text">Nadie ve ni guarda nada aquí sin iniciar sesión con una cuenta de Google autorizada.</p>
+      <button type="button" id="google-signin-btn" class="google-signin-btn">Acceder con Google</button>
+    </div>
+
+    <div class="setup-notice" id="denied-notice" role="alert" hidden>
+      <p class="setup-icon" aria-hidden="true">🚫</p>
+      <h2 class="setup-title">Esta cuenta no tiene acceso</h2>
+      <p class="setup-text" id="denied-text"></p>
+      <button type="button" id="denied-signout-btn" class="google-signin-btn">Probar con otra cuenta</button>
+    </div>
+
+    <nav class="tab-bar" id="tab-bar" role="tablist" aria-label="Secciones de la app">
+      <button type="button" class="tab-btn" data-tab="calendar" id="tab-btn-calendar" role="tab" aria-selected="false" aria-controls="tab-calendar">Calendario</button>
+      <button type="button" class="tab-btn" data-tab="add" id="tab-btn-add" role="tab" aria-selected="false" aria-controls="tab-add">Añadir</button>
+      <button type="button" class="tab-btn is-active" data-tab="view" id="tab-btn-view" role="tab" aria-selected="true" aria-controls="tab-view">Ver</button>
+    </nav>
+
+    <section id="tab-view" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-view">
+      <div class="view-block">
+        <h2 class="section-label">Rutina diaria</h2>
+        <ul class="task-list" id="daily-list"></ul>
+        <p class="empty-state" id="daily-empty" hidden>Aún no tienes tareas en tu rutina. Añádelas desde la pestaña «Añadir».</p>
+      </div>
+      <div class="view-block">
+        <h2 class="section-label">Solo hoy</h2>
+        <ul class="task-list" id="today-list"></ul>
+        <p class="empty-state" id="today-empty" hidden>Nada extra para hoy. Añade algo desde la pestaña «Añadir».</p>
+      </div>
+    </section>
+
+    <section id="tab-add" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-add" hidden>
+      <div class="add-block">
+        <h2 class="section-label">Rutina diaria</h2>
+        <p class="add-hint">Se repite cada día con la casilla sin marcar.</p>
+        <form class="add-form" id="daily-form">
+          <label class="sr-only" for="daily-input">Añadir tarea diaria</label>
+          <input type="text" id="daily-input" placeholder="Añadir tarea diaria…" autocomplete="off" maxlength="140">
+          <button type="submit" aria-label="Añadir tarea diaria">→</button>
+        </form>
+      </div>
+      <div class="add-block">
+        <h2 class="section-label">Solo hoy</h2>
+        <p class="add-hint">Solo estará disponible el día de hoy.</p>
+        <form class="add-form" id="today-form">
+          <label class="sr-only" for="today-input">Añadir tarea de hoy</label>
+          <input type="text" id="today-input" placeholder="Añadir tarea de hoy…" autocomplete="off" maxlength="140">
+          <button type="submit" aria-label="Añadir tarea de hoy">→</button>
+        </form>
+      </div>
+    </section>
+
+    <section id="tab-calendar" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-calendar" hidden>
+      <div class="cal-mode-switch" role="group" aria-label="Vista del calendario">
+        <button type="button" class="cal-mode-btn is-active" data-mode="week">Semana</button>
+        <button type="button" class="cal-mode-btn" data-mode="month">Mes</button>
+        <button type="button" class="cal-mode-btn" data-mode="year">Año</button>
+      </div>
+
+      <div class="cal-nav">
+        <button type="button" id="cal-prev" aria-label="Periodo anterior">‹</button>
+        <span id="cal-range-label" class="cal-range-label"></span>
+        <button type="button" id="cal-next" aria-label="Periodo siguiente">›</button>
+      </div>
+
+      <div class="cal-grid cal-grid--week" id="cal-grid-week"></div>
+
+      <div class="cal-month-wrap" id="cal-month-wrap" hidden>
+        <div class="cal-weekday-header">
+          <span>L</span><span>M</span><span>X</span><span>J</span><span>V</span><span>S</span><span>D</span>
+        </div>
+        <div class="cal-grid cal-grid--month" id="cal-grid-month"></div>
+      </div>
+
+      <div class="cal-grid cal-grid--year" id="cal-grid-year" hidden></div>
+
+      <div class="cal-legend" aria-hidden="true">
+        <span class="cal-legend-label">Menos</span>
+        <span class="cal-legend-swatch heat-0"></span>
+        <span class="cal-legend-swatch heat-1"></span>
+        <span class="cal-legend-swatch heat-2"></span>
+        <span class="cal-legend-swatch heat-3"></span>
+        <span class="cal-legend-swatch heat-4"></span>
+        <span class="cal-legend-swatch heat-5"></span>
+        <span class="cal-legend-label">Más</span>
+      </div>
+
+      <p class="cal-detail" id="cal-detail">Toca un día para ver el detalle.</p>
+    </section>
+  </main>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-app.js";
+  import {
+    getFirestore, collection, doc, getDoc, getDocs, onSnapshot,
+    query, orderBy, where, writeBatch, serverTimestamp, increment
+  } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-firestore.js";
+  import {
+    getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut
+  } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-auth.js";
+
+  // ============================================================
+  // CONFIGURA AQUÍ TUS DATOS DE FIREBASE
+  // Sustituye este objeto por el de tu proyecto:
+  // Consola de Firebase → Configuración del proyecto → Tus apps → SDK
+  // ============================================================
+  const firebaseConfig = {
+    apiKey: "TU_API_KEY",
+    authDomain: "TU_PROYECTO.firebaseapp.com",
+    projectId: "TU_PROYECTO",
+    storageBucket: "TU_PROYECTO.appspot.com",
+    messagingSenderId: "TU_SENDER_ID",
+    appId: "TU_APP_ID"
+  };
+
+  // ============================================================
+  // CORREOS AUTORIZADOS
+  // Deben coincidir exactamente con los que pusiste en las reglas
+  // de Firestore (request.auth.token.email in [...]).
+  // ============================================================
+  const ALLOWED_EMAILS = ['tu-correo1@gmail.com', 'tu-correo2@gmail.com'];
+
+  let db;
+  let auth;
+  let currentUser = null;
+  let appStarted = false; // evita reinicializar la app varias veces por sesión
+  let todayStr = getLocalDateString();
+  let editingItemId = null;     // evita que un re-render borre una edición a medio escribir
+  let pendingRenderItems = null;
+
+  // Estado del calendario
+  let calMode = 'week';        // 'week' | 'month' | 'year'
+  let calRefDate = new Date();
+
+  const els = {
+    greeting: document.getElementById('greeting-eyebrow'),
+    date: document.getElementById('date-display'),
+    summary: document.getElementById('summary-line'),
+    banner: document.getElementById('connection-banner'),
+    loading: document.getElementById('loading-state'),
+    setupNotice: document.getElementById('setup-notice'),
+    loginNotice: document.getElementById('login-notice'),
+    deniedNotice: document.getElementById('denied-notice'),
+    deniedText: document.getElementById('denied-text'),
+    googleSigninBtn: document.getElementById('google-signin-btn'),
+    deniedSignoutBtn: document.getElementById('denied-signout-btn'),
+    signoutBtn: document.getElementById('signout-btn'),
+    tabBar: document.getElementById('tab-bar'),
+
+    tabBtns: document.querySelectorAll('.tab-btn'),
+    tabPanels: {
+      view: document.getElementById('tab-view'),
+      add: document.getElementById('tab-add'),
+      calendar: document.getElementById('tab-calendar'),
+    },
+
+    dailyList: document.getElementById('daily-list'),
+    todayList: document.getElementById('today-list'),
+    dailyEmpty: document.getElementById('daily-empty'),
+    todayEmpty: document.getElementById('today-empty'),
+
+    dailyForm: document.getElementById('daily-form'),
+    todayForm: document.getElementById('today-form'),
+    dailyInput: document.getElementById('daily-input'),
+    todayInput: document.getElementById('today-input'),
+
+    calModeBtns: document.querySelectorAll('.cal-mode-btn'),
+    calPrev: document.getElementById('cal-prev'),
+    calNext: document.getElementById('cal-next'),
+    calRangeLabel: document.getElementById('cal-range-label'),
+    calGridWeek: document.getElementById('cal-grid-week'),
+    calMonthWrap: document.getElementById('cal-month-wrap'),
+    calGridMonth: document.getElementById('cal-grid-month'),
+    calGridYear: document.getElementById('cal-grid-year'),
+    calDetail: document.getElementById('cal-detail'),
+  };
+
+  // ---------- Utilidades de fecha ----------
+  function getLocalDateString(d = new Date()) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+  function addDays(date, n) {
+    const d = new Date(date);
+    d.setDate(d.getDate() + n);
+    return d;
+  }
+  function startOfWeekMonday(date) {
+    const d = new Date(date);
+    const day = d.getDay(); // 0=Dom .. 6=Sáb
+    const diff = (day === 0 ? -6 : 1) - day;
+    return addDays(d, diff);
+  }
+  function startOfMonth(date) { return new Date(date.getFullYear(), date.getMonth(), 1); }
+  function daysInMonth(date) { return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate(); }
+  function isSameDay(a, b) { return getLocalDateString(a) === getLocalDateString(b); }
+
+  function renderHeader() {
+    const now = new Date();
+    const hour = now.getHours();
+    const saludo = hour < 12 ? 'Buenos días' : hour < 20 ? 'Buenas tardes' : 'Buenas noches';
+    const diaSemana = now.toLocaleDateString('es-ES', { weekday: 'long' });
+    els.greeting.textContent = `${saludo} · ${diaSemana}`;
+    els.date.textContent = now.toLocaleDateString('es-ES', { day: 'numeric', month: 'long' });
+  }
+
+  function showBanner(msg) {
+    els.loading.hidden = true;
+    els.banner.textContent = msg;
+    els.banner.hidden = false;
+  }
+
+  // ---------- Pestañas ----------
+  function switchTab(name) {
+    els.tabBtns.forEach(btn => {
+      const active = btn.dataset.tab === name;
+      btn.classList.toggle('is-active', active);
+      btn.setAttribute('aria-selected', String(active));
+    });
+    Object.entries(els.tabPanels).forEach(([key, panel]) => { panel.hidden = key !== name; });
+    if (name === 'calendar') refreshCalendar();
+  }
+  els.tabBtns.forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
+
+  // ---------- Firestore: preparar el día ----------
+  async function ensureTodayInitialized() {
+    const dayRef = doc(db, 'days', todayStr);
+    const daySnap = await getDoc(dayRef);
+    if (daySnap.exists()) return;
+
+    const templatesSnap = await getDocs(query(collection(db, 'dailyTasks'), orderBy('order')));
+    const batch = writeBatch(db);
+    batch.set(dayRef, {
+      date: todayStr,
+      createdAt: serverTimestamp(),
+      totalCount: templatesSnap.size,
+      completedCount: 0
+    });
+    templatesSnap.forEach((tDoc, idx) => {
+      const itemRef = doc(collection(db, 'days', todayStr, 'items'));
+      const data = tDoc.data();
+      batch.set(itemRef, {
+        title: data.title,
+        completed: false,
+        type: 'daily',
+        templateId: tDoc.id,
+        order: idx,
+        createdAt: serverTimestamp()
+      });
+    });
+    await batch.commit();
+  }
+
+  function listenToday() {
+    const itemsRef = collection(db, 'days', todayStr, 'items');
+    onSnapshot(query(itemsRef, orderBy('order')), (snap) => {
+      const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      render(items);
+    }, (err) => {
+      console.error(err);
+      showBanner('No se pudo sincronizar con Firebase. Revisa tu conexión.');
+    });
+  }
+
+  // ---------- Render de la lista de hoy ----------
+  function createTaskRow(item) {
+    const li = document.createElement('li');
+    const typeClass = item.type === 'daily' ? 'task-row--daily' : 'task-row--today';
+    li.className = `task-row ${typeClass}${item.completed ? ' is-done' : ''}`;
+    li.dataset.id = item.id;
+
+    const check = document.createElement('button');
+    check.type = 'button';
+    check.className = 'check';
+    check.setAttribute('aria-pressed', String(!!item.completed));
+    check.setAttribute('aria-label', item.completed ? 'Marcar como pendiente' : 'Marcar como hecha');
+    check.innerHTML = '<svg viewBox="0 0 24 24" class="check-icon" aria-hidden="true"><path d="M4 12.5L9.5 18L20 6"/></svg>';
+    check.addEventListener('click', () => {
+      if (!item.completed) {
+        check.classList.add('is-stamping');
+        check.addEventListener('animationend', () => check.classList.remove('is-stamping'), { once: true });
+      }
+      toggleItem(item);
+    });
+
+    const title = document.createElement('span');
+    title.className = 'task-title';
+    title.textContent = item.title;
+
+    const editInput = document.createElement('input');
+    editInput.type = 'text';
+    editInput.className = 'task-edit-input';
+    editInput.value = item.title;
+    editInput.maxLength = 140;
+    editInput.hidden = true;
+
+    let finished = false;
+    function enterEditMode() {
+      finished = false;
+      editingItemId = item.id;
+      title.hidden = true;
+      editInput.hidden = false;
+      editInput.value = item.title;
+      editInput.focus();
+      editInput.select();
+    }
+    function exitEditMode() {
+      editInput.hidden = true;
+      title.hidden = false;
+    }
+    function finishEdit(commit) {
+      if (finished) return;
+      finished = true;
+      const val = editInput.value.trim();
+      exitEditMode();
+      editingItemId = null;
+      if (commit && val && val !== item.title) editItem(item, val);
+      if (pendingRenderItems) {
+        const queued = pendingRenderItems;
+        pendingRenderItems = null;
+        render(queued);
+      }
+    }
+    editInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); finishEdit(true); }
+      if (e.key === 'Escape') { editInput.value = item.title; finishEdit(false); }
+    });
+    editInput.addEventListener('blur', () => finishEdit(true));
+
+    const actions = document.createElement('div');
+    actions.className = 'task-actions';
+
+    const editBtn = document.createElement('button');
+    editBtn.type = 'button';
+    editBtn.className = 'edit-btn';
+    editBtn.setAttribute('aria-label', 'Editar tarea');
+    editBtn.textContent = '✎';
+    editBtn.addEventListener('click', enterEditMode);
+
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'delete';
+    del.setAttribute('aria-label', 'Eliminar tarea');
+    del.textContent = '✕';
+    del.addEventListener('click', () => deleteItem(item));
+
+    actions.append(editBtn, del);
+    li.append(check, title, editInput, actions);
+    return li;
+  }
+
+  function render(items) {
+    els.loading.hidden = true;
+    els.banner.hidden = true;
+
+    if (editingItemId) {
+      // Guardamos la actualización y la aplicamos al terminar de editar,
+      // así un check en otra tarea no borra el texto que se está escribiendo.
+      pendingRenderItems = items;
+      return;
+    }
+
+    const daily = items.filter(i => i.type === 'daily');
+    const today = items.filter(i => i.type === 'oneoff');
+
+    els.dailyList.replaceChildren(...daily.map(createTaskRow));
+    els.todayList.replaceChildren(...today.map(createTaskRow));
+
+    els.dailyEmpty.hidden = daily.length > 0;
+    els.todayEmpty.hidden = today.length > 0;
+
+    const doneCount = items.filter(i => i.completed).length;
+    const pendingCount = items.length - doneCount;
+    els.summary.textContent = items.length === 0
+      ? 'Todavía no hay tareas para hoy'
+      : `${doneCount} hecha${doneCount === 1 ? '' : 's'} · ${pendingCount} pendiente${pendingCount === 1 ? '' : 's'}`;
+  }
+
+  // ---------- Acciones (todas atómicas vía writeBatch) ----------
+  async function toggleItem(item) {
+    const newCompleted = !item.completed;
+    try {
+      const batch = writeBatch(db);
+      batch.update(doc(db, 'days', todayStr, 'items', item.id), { completed: newCompleted });
+      batch.update(doc(db, 'days', todayStr), { completedCount: increment(newCompleted ? 1 : -1) });
+      await batch.commit();
+    } catch (err) {
+      console.error(err);
+      showBanner('No se pudo guardar el cambio. Inténtalo de nuevo.');
+    }
+  }
+
+  async function editItem(item, newTitle) {
+    try {
+      const batch = writeBatch(db);
+      batch.update(doc(db, 'days', todayStr, 'items', item.id), { title: newTitle });
+      if (item.type === 'daily' && item.templateId) {
+        batch.update(doc(db, 'dailyTasks', item.templateId), { title: newTitle });
+      }
+      await batch.commit();
+    } catch (err) {
+      console.error(err);
+      showBanner('No se pudo editar la tarea.');
+    }
+  }
+
+  async function deleteItem(item) {
+    if (item.type === 'daily') {
+      const ok = confirm('¿Eliminar esta tarea de tu rutina diaria? Dejará de aparecer cada día.');
+      if (!ok) return;
+    }
+    try {
+      const batch = writeBatch(db);
+      batch.delete(doc(db, 'days', todayStr, 'items', item.id));
+      const updates = { totalCount: increment(-1) };
+      if (item.completed) updates.completedCount = increment(-1);
+      batch.update(doc(db, 'days', todayStr), updates);
+      if (item.type === 'daily' && item.templateId) {
+        batch.delete(doc(db, 'dailyTasks', item.templateId));
+      }
+      await batch.commit();
+    } catch (err) {
+      console.error(err);
+      showBanner('No se pudo eliminar la tarea.');
+    }
+  }
+
+  async function addDailyTask(title) {
+    const batch = writeBatch(db);
+    const templateRef = doc(collection(db, 'dailyTasks'));
+    batch.set(templateRef, { title, order: Date.now(), createdAt: serverTimestamp() });
+    const itemRef = doc(collection(db, 'days', todayStr, 'items'));
+    batch.set(itemRef, {
+      title, completed: false, type: 'daily', templateId: templateRef.id,
+      order: Date.now(), createdAt: serverTimestamp()
+    });
+    batch.update(doc(db, 'days', todayStr), { totalCount: increment(1) });
+    await batch.commit();
+  }
+
+  async function addOneOffTask(title) {
+    const batch = writeBatch(db);
+    const itemRef = doc(collection(db, 'days', todayStr, 'items'));
+    batch.set(itemRef, {
+      title, completed: false, type: 'oneoff', templateId: null,
+      order: Date.now(), createdAt: serverTimestamp()
+    });
+    batch.update(doc(db, 'days', todayStr), { totalCount: increment(1) });
+    await batch.commit();
+  }
+
+  els.dailyForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const title = els.dailyInput.value.trim();
+    if (!title) return;
+    els.dailyInput.value = '';
+    try { await addDailyTask(title); }
+    catch (err) { console.error(err); showBanner('No se pudo añadir la tarea.'); }
+  });
+
+  els.todayForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const title = els.todayInput.value.trim();
+    if (!title) return;
+    els.todayInput.value = '';
+    try { await addOneOffTask(title); }
+    catch (err) { console.error(err); showBanner('No se pudo añadir la tarea.'); }
+  });
+
+  function watchDateChange() {
+    setInterval(() => {
+      if (getLocalDateString() !== todayStr) location.reload();
+    }, 30000);
+  }
+
+  // ---------- Calendario ----------
+  async function loadDaysInRange(startStr, endStr) {
+    try {
+      const q = query(collection(db, 'days'), where('date', '>=', startStr), where('date', '<=', endStr));
+      const snap = await getDocs(q);
+      const map = new Map();
+      snap.forEach(d => {
+        const data = d.data();
+        map.set(data.date, { total: data.totalCount || 0, completed: data.completedCount || 0 });
+      });
+      return map;
+    } catch (err) {
+      console.error(err);
+      showBanner('No se pudo cargar el calendario.');
+      return new Map();
+    }
+  }
+
+  function heatLevel(info) {
+    if (!info || info.total === 0) return 0;
+    const pct = info.completed / info.total;
+    if (pct === 0) return 1;
+    if (pct < 0.34) return 2;
+    if (pct < 0.67) return 3;
+    if (pct < 1) return 4;
+    return 5;
+  }
+
+  function showDayDetail(date, info) {
+    const label = date.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    els.calDetail.textContent = (!info || info.total === 0)
+      ? `${label}: sin tareas registradas.`
+      : `${label}: ${info.completed} de ${info.total} completadas.`;
+  }
+
+  function buildDayCell(date, dataMap, variant) {
+    const dateStr = getLocalDateString(date);
+    const info = dataMap.get(dateStr);
+    const cell = document.createElement('button');
+    cell.type = 'button';
+    const classMap = { week: 'cal-cell--week', month: 'cal-cell--month', year: 'cal-year-cell' };
+    cell.className = `${classMap[variant]} heat-${heatLevel(info)}`;
+    if (isSameDay(date, new Date())) cell.classList.add('is-today');
+
+    if (variant === 'week') {
+      const wd = document.createElement('span');
+      wd.className = 'cal-cell-weekday';
+      wd.textContent = date.toLocaleDateString('es-ES', { weekday: 'short' });
+      const num = document.createElement('span');
+      num.className = 'cal-cell-num';
+      num.textContent = String(date.getDate());
+      const frac = document.createElement('span');
+      frac.className = 'cal-cell-frac';
+      frac.textContent = info ? `${info.completed}/${info.total}` : '–';
+      cell.append(wd, num, frac);
+    } else if (variant === 'month') {
+      cell.textContent = String(date.getDate());
+    }
+
+    const labelDate = date.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+    cell.setAttribute('aria-label', info ? `${labelDate}: ${info.completed} de ${info.total} completadas` : `${labelDate}: sin datos`);
+    cell.addEventListener('click', () => showDayDetail(date, info));
+    return cell;
+  }
+
+  function formatWeekRangeLabel(start, end) {
+    const opts = { day: 'numeric', month: 'short' };
+    return `${start.toLocaleDateString('es-ES', opts)} – ${end.toLocaleDateString('es-ES', opts)}`;
+  }
+
+  async function renderWeekView() {
+    const monday = startOfWeekMonday(calRefDate);
+    const weekDays = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
+    els.calRangeLabel.textContent = formatWeekRangeLabel(weekDays[0], weekDays[6]);
+    const dataMap = await loadDaysInRange(getLocalDateString(weekDays[0]), getLocalDateString(weekDays[6]));
+    els.calGridWeek.replaceChildren(...weekDays.map(d => buildDayCell(d, dataMap, 'week')));
+  }
+
+  async function renderMonthView() {
+    const first = startOfMonth(calRefDate);
+    const startGrid = startOfWeekMonday(first);
+    const offset = Math.round((first - startGrid) / 86400000);
+    const totalCells = Math.ceil((offset + daysInMonth(first)) / 7) * 7;
+    const cellDates = Array.from({ length: totalCells }, (_, i) => addDays(startGrid, i));
+    els.calRangeLabel.textContent = calRefDate.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+    const dataMap = await loadDaysInRange(getLocalDateString(cellDates[0]), getLocalDateString(cellDates[cellDates.length - 1]));
+    const cells = cellDates.map(d => {
+      const cell = buildDayCell(d, dataMap, 'month');
+      if (d.getMonth() !== calRefDate.getMonth()) cell.classList.add('is-outside');
+      return cell;
+    });
+    els.calGridMonth.replaceChildren(...cells);
+  }
+
+  async function renderYearView() {
+    const year = calRefDate.getFullYear();
+    els.calRangeLabel.textContent = String(year);
+    const dataMap = await loadDaysInRange(`${year}-01-01`, `${year}-12-31`);
+
+    const monthBlocks = [];
+    for (let m = 0; m < 12; m++) {
+      const monthDate = new Date(year, m, 1);
+      const block = document.createElement('div');
+      block.className = 'cal-year-month';
+
+      const label = document.createElement('p');
+      label.className = 'cal-year-month-label';
+      label.textContent = monthDate.toLocaleDateString('es-ES', { month: 'short' });
+
+      const grid = document.createElement('div');
+      grid.className = 'cal-year-month-grid';
+
+      const startGrid = startOfWeekMonday(monthDate);
+      const offset = Math.round((monthDate - startGrid) / 86400000);
+      const totalCells = Math.ceil((offset + daysInMonth(monthDate)) / 7) * 7;
+
+      const cells = [];
+      for (let i = 0; i < totalCells; i++) {
+        const d = addDays(startGrid, i);
+        if (d.getMonth() !== m) {
+          const blank = document.createElement('span');
+          blank.className = 'cal-year-cell cal-year-cell--blank';
+          cells.push(blank);
+        } else {
+          cells.push(buildDayCell(d, dataMap, 'year'));
+        }
+      }
+      grid.append(...cells);
+      block.append(label, grid);
+      monthBlocks.push(block);
+    }
+    els.calGridYear.replaceChildren(...monthBlocks);
+  }
+
+  function refreshCalendar() {
+    els.calGridWeek.hidden = calMode !== 'week';
+    els.calMonthWrap.hidden = calMode !== 'month';
+    els.calGridYear.hidden = calMode !== 'year';
+    if (calMode === 'week') renderWeekView();
+    else if (calMode === 'month') renderMonthView();
+    else renderYearView();
+  }
+
+  function navigateCalendar(step) {
+    if (calMode === 'week') calRefDate = addDays(calRefDate, 7 * step);
+    else if (calMode === 'month') calRefDate = new Date(calRefDate.getFullYear(), calRefDate.getMonth() + step, 1);
+    else calRefDate = new Date(calRefDate.getFullYear() + step, calRefDate.getMonth(), 1);
+    refreshCalendar();
+  }
+
+  els.calPrev.addEventListener('click', () => navigateCalendar(-1));
+  els.calNext.addEventListener('click', () => navigateCalendar(1));
+  els.calModeBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      calMode = btn.dataset.mode;
+      els.calModeBtns.forEach(b => b.classList.toggle('is-active', b === btn));
+      refreshCalendar();
+    });
+  });
+
+  // ---------- Arranque ----------
+  function isConfigured() {
+    // Mientras firebaseConfig siga con los valores de ejemplo ("TU_..."),
+    // no tiene sentido intentar conectar: fallaría en cada llamada a Firestore
+    // y solo se vería una lista vacía sin explicación.
+    return Boolean(firebaseConfig.apiKey) && !firebaseConfig.apiKey.startsWith('TU_');
+  }
+
+  function hideAllGates() {
+    els.setupNotice.hidden = true;
+    els.loginNotice.hidden = true;
+    els.deniedNotice.hidden = true;
+  }
+
+  function hideApp() {
+    els.tabBar.hidden = true;
+    els.signoutBtn.hidden = true;
+    Object.values(els.tabPanels).forEach(panel => { panel.hidden = true; });
+  }
+
+  async function init() {
+    renderHeader();
+
+    if (!isConfigured()) {
+      els.loading.hidden = true;
+      hideApp();
+      els.setupNotice.hidden = false;
+      return;
+    }
+
+    const app = initializeApp(firebaseConfig);
+    db = getFirestore(app);
+    auth = getAuth(app);
+
+    els.googleSigninBtn.addEventListener('click', () => {
+      signInWithPopup(auth, new GoogleAuthProvider()).catch((err) => {
+        console.error(err);
+        showBanner('No se pudo iniciar sesión. Inténtalo de nuevo.');
+      });
+    });
+    els.deniedSignoutBtn.addEventListener('click', () => signOut(auth));
+    els.signoutBtn.addEventListener('click', () => signOut(auth));
+
+    onAuthStateChanged(auth, async (user) => {
+      currentUser = user;
+      els.loading.hidden = true;
+
+      if (!user) {
+        appStarted = false;
+        hideApp();
+        hideAllGates();
+        els.loginNotice.hidden = false;
+        return;
+      }
+
+      if (!ALLOWED_EMAILS.includes(user.email)) {
+        appStarted = false;
+        hideApp();
+        hideAllGates();
+        els.deniedText.textContent = `${user.email} no está en la lista de correos permitidos.`;
+        els.deniedNotice.hidden = false;
+        return;
+      }
+
+      // Cuenta autorizada
+      hideAllGates();
+      els.tabBar.hidden = false;
+      els.signoutBtn.hidden = false;
+      switchTab('view');
+
+      if (appStarted) return;
+      appStarted = true;
+      try {
+        await ensureTodayInitialized();
+        listenToday();
+        watchDateChange();
+      } catch (err) {
+        console.error(err);
+        showBanner('No se pudo conectar con Firebase. Revisa firebaseConfig en el código.');
+      }
+    });
+  }
+
+  init();
+</script>
+</body>
+</html>
