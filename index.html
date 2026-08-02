@@ -385,6 +385,64 @@
     padding: 12px 0 0; margin: 0; border-top: 1px solid var(--border);
   }
 
+  .cal-filter { display: flex; gap: 8px; align-items: center; margin-bottom: 14px; }
+  .cal-filter input {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 9px 12px;
+    font-family: var(--font-body);
+    font-size: 16px;
+    color: var(--ink);
+  }
+  .cal-filter input::placeholder { color: var(--ink-muted); }
+  .cal-filter-clear {
+    background: var(--surface-alt);
+    border: 1px solid var(--border-strong);
+    color: var(--ink-muted);
+    border-radius: 999px;
+    padding: 8px 14px;
+    font-family: var(--font-body);
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .cal-filter-clear:hover { color: var(--danger); border-color: var(--danger); }
+  .cal-filter-summary {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--ink-muted);
+    text-align: center;
+    margin: -6px 0 14px;
+  }
+
+  .cal-cell--week.is-filter-match, .cal-cell--month.is-filter-match {
+    box-shadow: 0 0 0 2px var(--today-c);
+  }
+  .cal-year-cell.is-filter-match { box-shadow: 0 0 0 1px var(--surface), 0 0 0 2px var(--today-c); }
+  .is-filter-dim { opacity: 0.28; }
+
+  .cal-day-tasks { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .cal-day-task {
+    font-size: 0.85rem;
+    color: var(--ink-muted);
+    padding: 7px 12px 7px 28px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    position: relative;
+  }
+  .cal-day-task::before {
+    content: '';
+    position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+    width: 9px; height: 9px; border-radius: 50%;
+    border: 2px solid var(--border-strong);
+  }
+  .cal-day-task.is-done { color: var(--ink); }
+  .cal-day-task.is-done::before { background: var(--today-c); border-color: var(--today-c); }
+
   button:focus-visible, input:focus-visible { outline: 2px solid var(--routine); outline-offset: 2px; }
 
   @media (prefers-reduced-motion: reduce) {
@@ -473,6 +531,13 @@
     </section>
 
     <section id="tab-calendar" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-calendar" hidden>
+      <div class="cal-filter">
+        <label class="sr-only" for="cal-filter-input">Filtrar calendario por tarea</label>
+        <input type="text" id="cal-filter-input" placeholder="Filtrar por tarea (ej. Gimnasio)…" autocomplete="off">
+        <button type="button" id="cal-filter-clear" class="cal-filter-clear" hidden>Quitar filtro</button>
+      </div>
+      <p class="cal-filter-summary" id="cal-filter-summary" hidden></p>
+
       <div class="cal-mode-switch" role="group" aria-label="Vista del calendario">
         <button type="button" class="cal-mode-btn is-active" data-mode="week">Semana</button>
         <button type="button" class="cal-mode-btn" data-mode="month">Mes</button>
@@ -508,13 +573,14 @@
       </div>
 
       <p class="cal-detail" id="cal-detail">Toca un día para ver el detalle.</p>
+      <ul class="cal-day-tasks" id="cal-day-tasks"></ul>
     </section>
   </main>
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-app.js";
   import {
-    getFirestore, collection, doc, getDoc, getDocs, onSnapshot,
+    getFirestore, collection, collectionGroup, doc, getDoc, getDocs, onSnapshot,
     query, orderBy, where, writeBatch, serverTimestamp, increment
   } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-firestore.js";
   import {
@@ -553,6 +619,7 @@
   // Estado del calendario
   let calMode = 'week';        // 'week' | 'month' | 'year'
   let calRefDate = new Date();
+  let filterMatchDates = null; // null = sin filtro; si no, Set de fechas 'YYYY-MM-DD' que coinciden
 
   const els = {
     greeting: document.getElementById('greeting-eyebrow'),
@@ -595,6 +662,10 @@
     calGridMonth: document.getElementById('cal-grid-month'),
     calGridYear: document.getElementById('cal-grid-year'),
     calDetail: document.getElementById('cal-detail'),
+    calDayTasks: document.getElementById('cal-day-tasks'),
+    calFilterInput: document.getElementById('cal-filter-input'),
+    calFilterClear: document.getElementById('cal-filter-clear'),
+    calFilterSummary: document.getElementById('cal-filter-summary'),
   };
 
   // ---------- Utilidades de fecha ----------
@@ -632,6 +703,16 @@
     els.loading.hidden = true;
     els.banner.textContent = msg;
     els.banner.hidden = false;
+  }
+
+  // Muestra el código real del error de Firebase para poder saber si es un
+  // problema de reglas de seguridad (permission-denied), de red, etc.
+  function describeError(err) {
+    const code = (err && err.code) || (err && err.message) || 'error desconocido';
+    if (code === 'permission-denied') {
+      return `${code} — revisa las reglas de seguridad de Firestore`;
+    }
+    return code;
   }
 
   // ---------- Pestañas ----------
@@ -682,7 +763,7 @@
       render(items);
     }, (err) => {
       console.error(err);
-      showBanner('No se pudo sincronizar con Firebase. Revisa tu conexión.');
+      showBanner(`No se pudo sincronizar con Firebase (${describeError(err)}).`);
     });
   }
 
@@ -810,7 +891,7 @@
       await batch.commit();
     } catch (err) {
       console.error(err);
-      showBanner('No se pudo guardar el cambio. Inténtalo de nuevo.');
+      showBanner(`No se pudo guardar el cambio (${describeError(err)}).`);
     }
   }
 
@@ -824,7 +905,7 @@
       await batch.commit();
     } catch (err) {
       console.error(err);
-      showBanner('No se pudo editar la tarea.');
+      showBanner(`No se pudo editar la tarea (${describeError(err)}).`);
     }
   }
 
@@ -845,7 +926,7 @@
       await batch.commit();
     } catch (err) {
       console.error(err);
-      showBanner('No se pudo eliminar la tarea.');
+      showBanner(`No se pudo eliminar la tarea (${describeError(err)}).`);
     }
   }
 
@@ -879,7 +960,7 @@
     if (!title) return;
     els.dailyInput.value = '';
     try { await addDailyTask(title); }
-    catch (err) { console.error(err); showBanner('No se pudo añadir la tarea.'); }
+    catch (err) { console.error(err); showBanner(`No se pudo añadir la tarea (${describeError(err)}).`); }
   });
 
   els.todayForm.addEventListener('submit', async (e) => {
@@ -888,7 +969,7 @@
     if (!title) return;
     els.todayInput.value = '';
     try { await addOneOffTask(title); }
-    catch (err) { console.error(err); showBanner('No se pudo añadir la tarea.'); }
+    catch (err) { console.error(err); showBanner(`No se pudo añadir la tarea (${describeError(err)}).`); }
   });
 
   function watchDateChange() {
@@ -925,11 +1006,31 @@
     return 5;
   }
 
-  function showDayDetail(date, info) {
+  async function showDayDetail(date, info) {
+    const dateStr = getLocalDateString(date);
     const label = date.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-    els.calDetail.textContent = (!info || info.total === 0)
-      ? `${label}: sin tareas registradas.`
-      : `${label}: ${info.completed} de ${info.total} completadas.`;
+    els.calDayTasks.replaceChildren();
+
+    if (!info || info.total === 0) {
+      els.calDetail.textContent = `${label}: sin tareas registradas.`;
+      return;
+    }
+
+    els.calDetail.textContent = `${label}: ${info.completed} de ${info.total} completadas. Cargando detalle…`;
+    try {
+      const itemsSnap = await getDocs(query(collection(db, 'days', dateStr, 'items'), orderBy('order')));
+      els.calDetail.textContent = `${label}: ${info.completed} de ${info.total} completadas.`;
+      els.calDayTasks.replaceChildren(...itemsSnap.docs.map(d => {
+        const data = d.data();
+        const li = document.createElement('li');
+        li.className = `cal-day-task${data.completed ? ' is-done' : ''}`;
+        li.textContent = data.title;
+        return li;
+      }));
+    } catch (err) {
+      console.error(err);
+      els.calDetail.textContent = `${label}: no se pudo cargar el detalle (${describeError(err)}).`;
+    }
   }
 
   function buildDayCell(date, dataMap, variant) {
@@ -940,6 +1041,9 @@
     const classMap = { week: 'cal-cell--week', month: 'cal-cell--month', year: 'cal-year-cell' };
     cell.className = `${classMap[variant]} heat-${heatLevel(info)}`;
     if (isSameDay(date, new Date())) cell.classList.add('is-today');
+    if (filterMatchDates) {
+      cell.classList.add(filterMatchDates.has(dateStr) ? 'is-filter-match' : 'is-filter-dim');
+    }
 
     if (variant === 'week') {
       const wd = document.createElement('span');
@@ -1057,6 +1161,58 @@
     });
   });
 
+  // ---------- Filtro del calendario por nombre de tarea ----------
+  // Busca en TODAS las tareas completadas de TODOS los días (collection
+  // group query sobre 'items') las que coinciden con el texto escrito,
+  // y marca esos días en el calendario actualmente visible.
+  let filterDebounce = null;
+  async function applyFilter() {
+    const raw = els.calFilterInput.value.trim();
+    const text = raw.toLowerCase();
+
+    if (!text) {
+      filterMatchDates = null;
+      els.calFilterClear.hidden = true;
+      els.calFilterSummary.hidden = true;
+      refreshCalendar();
+      return;
+    }
+
+    els.calFilterClear.hidden = false;
+    els.calFilterSummary.hidden = false;
+    els.calFilterSummary.textContent = 'Buscando…';
+    try {
+      const snap = await getDocs(query(collectionGroup(db, 'items'), where('completed', '==', true)));
+      const matches = new Set();
+      snap.forEach(d => {
+        const data = d.data();
+        if (data.title && data.title.toLowerCase().includes(text) && d.ref.parent.parent) {
+          matches.add(d.ref.parent.parent.id);
+        }
+      });
+      filterMatchDates = matches;
+      els.calFilterSummary.textContent = matches.size === 0
+        ? `Ningún día con «${raw}» completada.`
+        : `${matches.size} día${matches.size === 1 ? '' : 's'} con «${raw}» completada.`;
+      refreshCalendar();
+    } catch (err) {
+      console.error(err);
+      els.calFilterSummary.textContent = `No se pudo filtrar (${describeError(err)}).`;
+    }
+  }
+
+  els.calFilterInput.addEventListener('input', () => {
+    clearTimeout(filterDebounce);
+    filterDebounce = setTimeout(applyFilter, 400);
+  });
+  els.calFilterInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); clearTimeout(filterDebounce); applyFilter(); }
+  });
+  els.calFilterClear.addEventListener('click', () => {
+    els.calFilterInput.value = '';
+    applyFilter();
+  });
+
   // ---------- Arranque ----------
   function isConfigured() {
     // Mientras firebaseConfig siga con los valores de ejemplo ("TU_..."),
@@ -1103,6 +1259,12 @@
       signInWithPopup(auth, new GoogleAuthProvider()).catch((err) => {
         console.error(err);
         if (err.code === 'auth/popup-blocked' || err.code === 'auth/operation-not-supported-in-this-environment') {
+          // Si esto pasa al abrir el archivo con doble clic (file://) la
+          // redirección no va a volver a ninguna parte: Google no acepta
+          // ese origen. Hay que servir el archivo por http(s) (localhost,
+          // GitHub Pages, Firebase Hosting...) y añadir ese dominio en
+          // Firebase Console → Authentication → Settings → Authorized domains.
+          showBanner(`Redirigiendo para iniciar sesión (${err.code}). Si no vuelves a esta página, el archivo no se está sirviendo por http(s).`);
           signInWithRedirect(auth, new GoogleAuthProvider());
         } else if (err.code !== 'auth/cancelled-popup-request' && err.code !== 'auth/popup-closed-by-user') {
           showBanner(`No se pudo iniciar sesión (${err.code || err.message}).`);
@@ -1147,7 +1309,7 @@
         watchDateChange();
       } catch (err) {
         console.error(err);
-        showBanner('No se pudo conectar con Firebase. Revisa firebaseConfig en el código.');
+        showBanner(`No se pudo conectar con Firebase (${describeError(err)}).`);
       }
     });
   }
